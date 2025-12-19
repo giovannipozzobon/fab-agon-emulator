@@ -44,7 +44,7 @@ pub fn is_not_ascii(scancode: sdl2::keyboard::Scancode) -> bool {
 /**
  * Convert SDL scancodes to PS/2 set 2 scancodes.
  */
-pub fn sdl2ps2(scancode: sdl2::keyboard::Scancode) -> u16 {
+pub fn sdl2ps2(scancode: sdl2::keyboard::Scancode, opt_caps_as_ctrl: bool) -> u16 {
     match scancode {
         sdl2::keyboard::Scancode::Grave => 0x0e,
         sdl2::keyboard::Scancode::_1 => 0x16,
@@ -73,7 +73,13 @@ pub fn sdl2ps2(scancode: sdl2::keyboard::Scancode) -> u16 {
         sdl2::keyboard::Scancode::P => 0x4d,
         sdl2::keyboard::Scancode::LeftBracket => 0x54,
         sdl2::keyboard::Scancode::RightBracket => 0x5b,
-        sdl2::keyboard::Scancode::CapsLock => 0x58,
+        sdl2::keyboard::Scancode::CapsLock => {
+            if opt_caps_as_ctrl {
+                0x14
+            } else {
+                0x58
+            }
+        }
         sdl2::keyboard::Scancode::A => 0x1c,
         sdl2::keyboard::Scancode::S => 0x1b,
         sdl2::keyboard::Scancode::D => 0x23,

@@ -492,7 +492,8 @@ pub fn main_loop() -> i32 {
                             false
                         };
                         if !consumed {
-                            let ps2scancode = sdl2ps2::sdl2ps2(scancode.unwrap());
+                            let ps2scancode =
+                                sdl2ps2::sdl2ps2(scancode.unwrap(), args.caps_as_ctrl);
                             if ps2scancode > 0 {
                                 if sdl2ps2::is_not_ascii(scancode.unwrap()) || !args.osk {
                                     unsafe {
@@ -503,7 +504,7 @@ pub fn main_loop() -> i32 {
                         }
                     }
                     Event::KeyUp { scancode, .. } => {
-                        let ps2scancode = sdl2ps2::sdl2ps2(scancode.unwrap());
+                        let ps2scancode = sdl2ps2::sdl2ps2(scancode.unwrap(), args.caps_as_ctrl);
                         if ps2scancode > 0 {
                             unsafe {
                                 (*vdp_interface.sendPS2KbEventToFabgl)(ps2scancode, 0);
