@@ -1,7 +1,7 @@
 use crate::parse_args::parse_args;
 use agon_ez80_emulator::debugger::{DebugCmd, DebugResp, DebuggerConnection, PauseReason, Trigger};
 use agon_ez80_emulator::{gpio, AgonMachine, AgonMachineConfig, GpioVgaFrame, RamInit, SerialLink};
-use sdl3 as sdl2;
+use sdl3;
 use sdl3::event::Event;
 use sdl3_sys::everything::{SDL_ScaleMode, SDL_SetTextureScaleMode};
 use std::sync::mpsc;
@@ -113,8 +113,8 @@ pub fn main_loop() -> i32 {
     // Prefer wayland on linux
     /*
     #[cfg(target_os = "linux")]
-    if sdl2::video::drivers().any(|drv| drv == "wayland") {
-        sdl2::hint::set(sdl2::hint::names::VIDEO_DRIVER, "wayland");
+    if sdl3::video::drivers().any(|drv| drv == "wayland") {
+        sdl3::hint::set(sdl3::hint::names::VIDEO_DRIVER, "wayland");
     }
     */
 
@@ -229,7 +229,7 @@ pub fn main_loop() -> i32 {
             })
     };
 
-    let sdl_context = sdl2::init().unwrap();
+    let sdl_context = sdl3::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
     let scaled_native_resolution = video_subsystem
         .get_primary_display()
@@ -255,11 +255,11 @@ pub fn main_loop() -> i32 {
         scaled_native_resolution.w, scaled_native_resolution.h
     );*/
 
-    let _audio_device = match (|| -> Result<sdl2::audio::AudioStreamWithCallback<audio::VdpAudioStream> ,sdl2::Error> {
+    let _audio_device = match (|| -> Result<sdl3::audio::AudioStreamWithCallback<audio::VdpAudioStream> ,sdl3::Error> {
         let audio_subsystem = sdl_context.audio()?;
 
-        let desired_spec = sdl2::audio::AudioSpec {
-            format: Some(sdl2::audio::AudioFormat::U8),
+        let desired_spec = sdl3::audio::AudioSpec {
+            format: Some(sdl3::audio::AudioFormat::U8),
             freq: Some(16384), // real VDP uses 16384Hz
             channels: Some(1),
         };
@@ -432,22 +432,22 @@ pub fn main_loop() -> i32 {
                         ..
                     } => {
                         let hostkey = if args.alternative_hostkey {
-                            sdl2::keyboard::Mod::RALTMOD
+                            sdl3::keyboard::Mod::RALTMOD
                         } else {
-                            sdl2::keyboard::Mod::RCTRLMOD
+                            sdl3::keyboard::Mod::RCTRLMOD
                         };
                         // handle emulator shortcut keys
                         let consumed = if keymod.contains(hostkey) {
                             match keycode {
-                                Some(sdl2::keyboard::Keycode::_1) => {
+                                Some(sdl3::keyboard::Keycode::_1) => {
                                     video_src = VideoSource::Vdp;
                                     true
                                 }
-                                Some(sdl2::keyboard::Keycode::_2) => {
+                                Some(sdl3::keyboard::Keycode::_2) => {
                                     video_src = VideoSource::Auto;
                                     true
                                 }
-                                Some(sdl2::keyboard::Keycode::C) => {
+                                Some(sdl3::keyboard::Keycode::C) => {
                                     // caps-lock
                                     unsafe {
                                         (*vdp_interface.sendPS2KbEventToFabgl)(0x58, 1);
@@ -455,24 +455,24 @@ pub fn main_loop() -> i32 {
                                     }
                                     true
                                 }
-                                Some(sdl2::keyboard::Keycode::F) => {
+                                Some(sdl3::keyboard::Keycode::F) => {
                                     is_fullscreen = !is_fullscreen;
                                     break 'inner;
                                 }
-                                Some(sdl2::keyboard::Keycode::M) => {
+                                Some(sdl3::keyboard::Keycode::M) => {
                                     unsafe {
                                         (*vdp_interface.dump_vdp_mem_stats)();
                                     }
                                     true
                                 }
-                                Some(sdl2::keyboard::Keycode::Q) => {
+                                Some(sdl3::keyboard::Keycode::Q) => {
                                     break 'running;
                                 }
-                                Some(sdl2::keyboard::Keycode::R) => {
+                                Some(sdl3::keyboard::Keycode::R) => {
                                     soft_reset.store(true, std::sync::atomic::Ordering::Relaxed);
                                     true
                                 }
-                                Some(sdl2::keyboard::Keycode::S) => {
+                                Some(sdl3::keyboard::Keycode::S) => {
                                     screen_scale = match screen_scale {
                                         parse_args::ScreenScale::StretchAny => {
                                             parse_args::ScreenScale::Scale4_3
@@ -513,9 +513,9 @@ pub fn main_loop() -> i32 {
                     }
                     Event::MouseButtonUp { mouse_btn, .. } => {
                         mouse_btn_state &= match mouse_btn {
-                            sdl2::mouse::MouseButton::Left => !1,
-                            sdl2::mouse::MouseButton::Right => !2,
-                            sdl2::mouse::MouseButton::Middle => !4,
+                            sdl3::mouse::MouseButton::Left => !1,
+                            sdl3::mouse::MouseButton::Right => !2,
+                            sdl3::mouse::MouseButton::Middle => !4,
                             _ => !0,
                         };
                         let packet: [u8; 4] = [8 | mouse_btn_state, 0, 0, 0];
@@ -525,9 +525,9 @@ pub fn main_loop() -> i32 {
                     }
                     Event::MouseButtonDown { mouse_btn, .. } => {
                         mouse_btn_state |= match mouse_btn {
-                            sdl2::mouse::MouseButton::Left => 1,
-                            sdl2::mouse::MouseButton::Right => 2,
-                            sdl2::mouse::MouseButton::Middle => 4,
+                            sdl3::mouse::MouseButton::Left => 1,
+                            sdl3::mouse::MouseButton::Right => 2,
+                            sdl3::mouse::MouseButton::Middle => 4,
                             _ => 0,
                         };
                         let packet: [u8; 4] = [8 | mouse_btn_state, 0, 0, 0];
@@ -662,7 +662,7 @@ pub fn main_loop() -> i32 {
                         /*
                          * This is how it's supposed to be done for a streaming texture,
                          * but it produces a black screen on some systems...
-                        agon_texture.with_lock(Some(sdl2::rect::Rect::new(0, 0, w, h)), |data, pitch| {
+                        agon_texture.with_lock(Some(sdl3::rect::Rect::new(0, 0, w, h)), |data, pitch| {
                             let mut i = 0;
                             for y in 0..h {
                                 let row = y as usize * pitch;
@@ -687,7 +687,7 @@ pub fn main_loop() -> i32 {
                 screen_scale,
             ));
 
-            canvas.set_draw_color(sdl2::pixels::Color {
+            canvas.set_draw_color(sdl3::pixels::Color {
                 r: (args.border >> 16) as u8,
                 g: (args.border >> 8) as u8,
                 b: args.border as u8,
@@ -745,18 +745,18 @@ fn calc_4_3_output_rect(
     window_size: (u32, u32),
     agon_scr: (u32, u32),
     scale: parse_args::ScreenScale,
-) -> sdl2::render::FRect {
+) -> sdl3::render::FRect {
     let (wx, wy) = window_size;
 
     match scale {
         parse_args::ScreenScale::StretchAny => {
-            sdl2::render::FRect::new(0.0, 0.0, wx as f32, wy as f32)
+            sdl3::render::FRect::new(0.0, 0.0, wx as f32, wy as f32)
         }
         parse_args::ScreenScale::ScaleInteger if wx >= agon_scr.0 && wy >= agon_scr.1 => {
             let scaled_size = calc_int_scale((wx, wy), agon_scr);
             let offx = ((wx - scaled_size.0) / 2) as i32;
             let offy = ((wy - scaled_size.1) / 2) as i32;
-            return sdl2::render::FRect::new(
+            return sdl3::render::FRect::new(
                 offx as f32,
                 offy as f32,
                 scaled_size.0 as f32,
@@ -765,14 +765,14 @@ fn calc_4_3_output_rect(
         }
         _ => {
             if wx > 4 * wy / 3 {
-                sdl2::render::FRect::new(
+                sdl3::render::FRect::new(
                     ((wx as i32 - 4 * wy as i32 / 3) >> 1) as f32,
                     0.0,
                     (4 * wy / 3) as f32,
                     wy as f32,
                 )
             } else {
-                sdl2::render::FRect::new(
+                sdl3::render::FRect::new(
                     0.0,
                     ((wy as i32 - 3 * wx as i32 / 4) >> 1) as f32,
                     wx as f32,
@@ -784,8 +784,8 @@ fn calc_4_3_output_rect(
 }
 
 fn open_joystick_devices(
-    joysticks: &mut Vec<sdl2::joystick::Joystick>,
-    joystick_subsystem: &sdl2::JoystickSubsystem,
+    joysticks: &mut Vec<sdl3::joystick::Joystick>,
+    joystick_subsystem: &sdl3::JoystickSubsystem,
 ) {
     joysticks.clear();
 
@@ -808,10 +808,10 @@ fn open_joystick_devices(
  *           bilinear-filtered rendering to the SDL screen.
  */
 fn make_agon_screen_textures(
-    texture_creator: &sdl2::render::TextureCreator<sdl2::video::WindowContext>,
+    texture_creator: &sdl3::render::TextureCreator<sdl3::video::WindowContext>,
     native_size: (u32, u32),
     agon_size: (u32, u32),
-) -> (sdl2::render::Texture, sdl2::render::Texture) {
+) -> (sdl3::render::Texture, sdl3::render::Texture) {
     let texture = texture_creator
         .create_texture_streaming(
             unsafe {
