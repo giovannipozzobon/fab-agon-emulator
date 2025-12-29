@@ -23,6 +23,7 @@ fn send_keys(tx: &Sender<u8>, msg: &str) {
         tx.send(0).unwrap();
         tx.send(0).unwrap();
         tx.send(1).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10));
 
         // key up
         tx.send(0x81).unwrap();
@@ -31,6 +32,7 @@ fn send_keys(tx: &Sender<u8>, msg: &str) {
         tx.send(0).unwrap();
         tx.send(0).unwrap();
         tx.send(0).unwrap();
+        std::thread::sleep(std::time::Duration::from_millis(10));
     }
 }
 
