@@ -6,6 +6,7 @@
 - [ ] gdbserver support?
 
 ## v1.1
+- [ ] agon-cli-emulator is broken...
 - [ ] Test joysticks
 - [ ] --renderer does nothing now...
 - [ ] interrupt handling optimisation

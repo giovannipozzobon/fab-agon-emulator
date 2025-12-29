@@ -5,34 +5,34 @@ USAGE:
   fab-agon-emulator [OPTIONS]
 
 OPTIONS:
-  -d, --debugger        Enable the eZ80 debugger
   -b, --breakpoint      Set a breakpoint. --breakpoint can be used repeatedly
+  --border rrggbb       Colour of border around Agon screen (default 000000)
+  --caps-as-ctrl        Remap caps-lock as a left ctrl key
+  -d, --debugger        Enable the eZ80 debugger
   -f, --fullscreen      Start in fullscreen mode
-  -h, --help            Prints help information
-  -u, --unlimited-cpu   Don't limit eZ80 CPU frequency
   --firmware console8   Use console8 (MOS 2.x) firmware (default is platform)
-  --firmware quark      Use quark 1.04 firmware (default is platform)
   --firmware electron   Use ElectronOS firmware (default is platform)
   --firmware fb         Use eZ80 Framebuffer firmware (default is platform)
+  --firmware quark      Use quark 1.04 firmware (default is platform)
+  -h, --help            Prints help information
   --mode <n>            Start in a specific screen mode
   --osk                 Enable on-screen-keyboard input (requires OS osk)
-  --sdcard <path>       Sets the path of the emulated SDCard
-  --sdcard-img <file>   Use a raw SDCard image rather than the host filesystem
+  --ralt-hostkey        Use right-alt (AltGr) as the emulator host key
   --scale 4:3           (default) Scale Agon screen to 4:3 aspect ratio
   --scale integer       Scale Agon screen to an integer multiple
   --scale stretch       Scale Agon screen to full window size
-  --border rrggbb       Colour of border around Agon screen (default 000000)
-  --caps-as-ctrl        Remap caps-lock as a left ctrl key
+  --sdcard-img <file>   Use a raw SDCard image rather than the host filesystem
+  --sdcard <path>       Sets the path of the emulated SDCard
+  -u, --unlimited-cpu   Don't limit eZ80 CPU frequency
 
 ADVANCED:
   --mos PATH            Use a different MOS.bin firmware
-  --vdp PATH            Use a different VDP dll/so firmware
-  --renderer sw         Use software renderer (default)
   --renderer hw         Use GL/D3D renderer
-  --uart1-device <dev>  Link ez80 uart1 to this host serial device
+  --renderer sw         Use software renderer (default)
   --uart1-baud <rate>   Open --uart1-device with the given baud rate
+  --uart1-device <dev>  Link ez80 uart1 to this host serial device
+  --vdp PATH            Use a different VDP dll/so firmware
   --verbose             Verbose mode (includes VDP debug logs)
-  --ralt-hostkey        Use right-alt (AltGr) as the emulator host key
   -z, --zero            Initialize ram with zeroes instead of random values
 ";
 
