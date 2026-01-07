@@ -23,6 +23,11 @@ fn send_keys(tx: &Sender<u8>, msg: &str) {
         tx.send(0).unwrap();
         tx.send(0).unwrap();
         tx.send(1).unwrap();
+
+        // These waits are needed to allow a little time for the next
+        // mos_getkey call to be made. This is a silly hack to make
+        // input to MOS CLI work (not needed for MOSes with buffered
+        // keyboard input)
         std::thread::sleep(std::time::Duration::from_millis(10));
 
         // key up
