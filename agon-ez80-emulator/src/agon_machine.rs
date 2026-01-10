@@ -39,6 +39,9 @@ pub struct AgonMachine {
     gpios: Arc<gpio::GpioSet>,
     ram_init: RamInit,
     mos_bin: std::path::PathBuf,
+    // CPU cycles elapsed before evaluating pending interrupts
+    // and applying ticks to hardware (PRTs, uarts)
+    interrupt_precision: i32,
 
     // memory map config
     onchip_mem_enable: bool,
@@ -346,6 +349,11 @@ impl Machine for AgonMachine {
                         self.gpios.d.get_dr(),
                         value,
                     );
+                    if self.gpio_vga.img.is_some() {
+                        // if we have video sync on GPIOs, switch to
+                        // high-precision interrupts (permanently)
+                        self.interrupt_precision = 1;
+                    }
                 }
                 self.gpios.d.set_dr(value);
                 self.gpios.d.update();
@@ -534,6 +542,7 @@ impl AgonMachine {
             cs0_lbr: 0,
             cs0_ubr: 0xff,
             flash_waitstates: 4,
+            interrupt_precision: 16,
         }
     }
 
@@ -1367,7 +1376,7 @@ impl AgonMachine {
 
     #[inline]
     // returns cycles elapsed
-    pub fn execute_instruction(&mut self, cpu: &mut Cpu) -> i32 {
+    pub fn execute_instruction(&mut self, cpu: &mut Cpu) {
         let pc = cpu.state.pc();
         // remember PC before instruction executes. the debugger uses this
         // when out-of-bounds memory accesses happen (since they can't be
@@ -1375,6 +1384,13 @@ impl AgonMachine {
         self.last_pc = pc;
 
         if self.enable_hostfs && pc < 0x20000 && self.flash_addr_u == 0 {
+            // Don't use any cycles in hostfs functionality.
+            // Why? fread (for example) can write to thousands
+            // of memory locations, causing cycle_counter to get
+            // big. applying so many cycles at once to hardware (PRTs, uart etc)
+            // causes mad shit.
+            let cycle_count = self.cycle_counter.get();
+
             if pc == self.mos_map.f_close {
                 self.hostfs_mos_f_close(cpu);
             }
@@ -1439,11 +1455,10 @@ impl AgonMachine {
             //if pc == self.mos_map._f_getfree { eprintln!("Un-trapped fatfs call: f_getfree"); }
             //if pc == self.mos_map._f_printf { eprintln!("Un-trapped fatfs call: f_printf"); }
             //if pc == self.mos_map._f_sync { eprintln!("Un-trapped fatfs call: f_sync"); }
+            self.cycle_counter.set(cycle_count);
         }
 
-        self.cycle_counter.set(0);
         cpu.fast_execute_instruction(self);
-        self.apply_elapsed_cycles()
     }
 
     #[inline]
@@ -1453,7 +1468,6 @@ impl AgonMachine {
             self.total_cycles_elapsed = self
                 .total_cycles_elapsed
                 .wrapping_add(cycles_elapsed as u64);
-            //println!("{:2} cycles, {:?}", cycles_elapsed, ez80::disassembler::disassemble(self, cpu, None, pc, pc+1));
 
             for t in &mut self.prt_timers {
                 t.apply_ticks(cycles_elapsed as u16);
@@ -1461,8 +1475,9 @@ impl AgonMachine {
 
             self.uart0.apply_ticks(cycles_elapsed as i32);
             self.uart1.apply_ticks(cycles_elapsed as i32);
-        }
 
+            self.cycle_counter.set(0);
+        }
         cycles_elapsed
     }
 
@@ -1486,72 +1501,48 @@ impl AgonMachine {
     }
 
     #[inline]
-    pub fn do_interrupts(&mut self, cpu: &mut Cpu) -> i32 {
-        // Not an interrupt. Is a soft-reset pending?
-        if cpu.state.instructions_executed & 0xfff == 0 {
-            // perform a soft reset if requested
-            if self.soft_reset.load(std::sync::atomic::Ordering::Relaxed) {
-                // MOS soft reset code always runs from ADL mode.
-                // and set_pc(0) will actually set pc := (mb<<16 + 0) in non-adl mode
-                cpu.state.reg.adl = true;
-                cpu.state.reg.madl = true;
-                cpu.state.set_pc(0);
-                self.soft_reset
-                    .store(false, std::sync::atomic::Ordering::Relaxed);
-                return 0;
-            }
-        }
-
-        if (cpu.state.instructions_executed & 0xf == 0 || self.gpio_vga.img.is_some())
-            && cpu.state.reg.get_iff1()
-        {
-            self.cycle_counter.set(0);
-            'int_block: {
-                // Interrupts in priority order
-                for i in 0..self.prt_timers.len() {
-                    if self.prt_timers[i].irq_due() {
-                        Environment::new(&mut cpu.state, self).interrupt(0xa + 2 * (i as u32));
-                        break 'int_block;
-                    }
+    pub fn do_interrupts(&mut self, cpu: &mut Cpu) {
+        if cpu.state.reg.get_iff1() {
+            // Interrupts in priority order
+            for i in 0..self.prt_timers.len() {
+                if self.prt_timers[i].irq_due() {
+                    Environment::new(&mut cpu.state, self).interrupt(0xa + 2 * (i as u32));
+                    return;
                 }
+            }
 
-                // fire uart interrupt
-                if self.uart0.is_rx_interrupt_enabled() && self.uart0.maybe_fill_rx_buf() != None || // character(s) received
+            // fire uart interrupt
+            if self.uart0.is_rx_interrupt_enabled() && self.uart0.maybe_fill_rx_buf() != None || // character(s) received
                    self.uart0.ier & 0x02 != 0
-                {
-                    // character(s) to send
-                    let mut env = Environment::new(&mut cpu.state, self);
-                    //println!("uart interrupt!");
-                    env.interrupt(0x18); // uart0_handler
-                    break 'int_block;
-                }
-
-                if self.i2c.is_interrupt_due() {
-                    let mut env = Environment::new(&mut cpu.state, self);
-                    //println!("i2c interrupt!");
-                    env.interrupt(0x1c);
-                    break 'int_block;
-                }
-
-                // fire gpio interrupts
-                let b_int = self.gpios.b.get_interrupt_due();
-                if self.fire_gpio_interrupts(cpu, 0x30, b_int) {
-                    break 'int_block;
-                }
-                let c_int = self.gpios.c.get_interrupt_due();
-                if self.fire_gpio_interrupts(cpu, 0x40, c_int) {
-                    break 'int_block;
-                }
-                let d_int = self.gpios.d.get_interrupt_due();
-                if self.fire_gpio_interrupts(cpu, 0x50, d_int) {
-                    break 'int_block;
-                }
+            {
+                // character(s) to send
+                let mut env = Environment::new(&mut cpu.state, self);
+                //println!("uart interrupt!");
+                env.interrupt(0x18); // uart0_handler
+                return;
             }
 
-            return self.apply_elapsed_cycles() as i32;
+            if self.i2c.is_interrupt_due() {
+                let mut env = Environment::new(&mut cpu.state, self);
+                //println!("i2c interrupt!");
+                env.interrupt(0x1c);
+                return;
+            }
+
+            // fire gpio interrupts
+            let b_int = self.gpios.b.get_interrupt_due();
+            if self.fire_gpio_interrupts(cpu, 0x30, b_int) {
+                return;
+            }
+            let c_int = self.gpios.c.get_interrupt_due();
+            if self.fire_gpio_interrupts(cpu, 0x40, c_int) {
+                return;
+            }
+            let d_int = self.gpios.d.get_interrupt_due();
+            if self.fire_gpio_interrupts(cpu, 0x50, d_int) {
+                return;
+            }
         }
-        // no cycles
-        0
     }
 
     #[inline]
@@ -1599,8 +1590,21 @@ impl AgonMachine {
                 if self.is_paused() {
                     break;
                 }
-                cycle += self.do_interrupts(&mut cpu) as u64;
-                cycle += self.execute_instruction(&mut cpu) as u64;
+                self.execute_instruction(&mut cpu);
+                if self.cycle_counter.get() >= self.interrupt_precision {
+                    cycle += self.apply_elapsed_cycles() as u64;
+                    self.do_interrupts(&mut cpu);
+                }
+            }
+
+            // perform a soft reset if requested
+            if self.soft_reset.load(std::sync::atomic::Ordering::Relaxed) {
+                // MOS soft reset code always runs from ADL mode.
+                // and set_pc(0) will actually set pc := (mb<<16 + 0) in non-adl mode
+                cpu.state.reg.adl = true;
+                cpu.state.set_pc(0);
+                self.soft_reset
+                    .store(false, std::sync::atomic::Ordering::Relaxed);
             }
 
             while timeslice_start.elapsed() < std::time::Duration::from_millis(1) {

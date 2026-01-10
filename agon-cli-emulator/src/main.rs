@@ -311,7 +311,7 @@ fn main() {
                 gpios: gpios_,
                 tx_gpio_vga_frame: tx_gpio_vga_frame,
                 clockspeed_hz: if args.unlimited_cpu {
-                    std::u64::MAX
+                    1000_000_000
                 } else {
                     18_432_000
                 },
