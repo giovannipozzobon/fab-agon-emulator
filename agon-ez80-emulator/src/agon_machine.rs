@@ -323,10 +323,14 @@ impl Machine for AgonMachine {
                         self.gpios.c.get_dr(),
                         value,
                     );
+                    // Avoid full set_dr/update, as it's really slow
+                    // and we're setting pixel values tens of thousands
+                    // of times per frame.
+                    self.gpios.c.raw_set_io_level(value);
+                } else {
+                    self.gpios.c.set_dr(value);
+                    self.gpios.c.update();
                 }
-
-                self.gpios.c.set_dr(value);
-                self.gpios.c.update();
             }
             0x9f => {
                 self.gpios.c.set_ddr(value);

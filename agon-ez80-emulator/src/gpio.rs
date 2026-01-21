@@ -22,7 +22,6 @@ pub struct Gpio {
     io_level: AtomicU8,
     interrupt_due: AtomicU8, // bitmap of 8 gpio pins
     dr: AtomicU8,
-
     pub ddr: AtomicU8,
     pub alt1: AtomicU8,
     pub alt2: AtomicU8,
@@ -104,6 +103,10 @@ impl Gpio {
 
     pub fn get_dr(&self) -> u8 {
         self.io_level.load(Relaxed)
+    }
+
+    pub fn raw_set_io_level(&self, dr: u8) {
+        self.io_level.store(dr, Relaxed);
     }
 
     pub fn set_dr(&self, dr: u8) {
