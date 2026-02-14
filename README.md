@@ -42,16 +42,16 @@ with quark firmware, run:
 fab-agon-emulator --firmware quark
 ```
 
-Legacy 1.03 firmware is also available:
-
-```
-fab-agon-emulator --firmware 1.03
-```
-
-And Electron firmware:
+Electron firmware:
 
 ```
 fab-agon-emulator --firmware electron
+```
+
+Framebuffer Agon firmware:
+
+```
+fab-agon-emulator --firmware fb
 ```
 
 ## The Z80 debugger
