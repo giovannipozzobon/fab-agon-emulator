@@ -28,8 +28,8 @@ OPTIONS:
 ADVANCED:
   --mos PATH            Use a different MOS.bin firmware
   --precise-interrupts  Process interrupts and EZ80 hardware every cycle
-  --renderer hw         Use GL/D3D renderer
-  --renderer sw         Use software renderer (default)
+  --renderer hw         Use hardware (GL/D3D/Vulkan) renderer (default)
+  --renderer sw         Use software renderer
   --uart1-baud <rate>   Open --uart1-device with the given baud rate
   --uart1-device <dev>  Link ez80 uart1 to this host serial device
   --vdp PATH            Use a different VDP dll/so firmware
@@ -168,7 +168,7 @@ pub fn parse_args() -> Result<AppArgs, pico_args::Error> {
                 }
             }
         } else {
-            Renderer::Software
+            Renderer::Accelerated
         },
         firmware: if let Some(ver) = firmware_ver {
             match ver.as_str() {

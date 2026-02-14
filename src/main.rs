@@ -360,8 +360,11 @@ pub fn main_loop() -> i32 {
 
         let mut canvas = {
             match args.renderer {
-                // TODO
-                parse_args::Renderer::Software => window.into_canvas(),
+                parse_args::Renderer::Software => sdl3::render::create_renderer(
+                    window,
+                    Some(core::ffi::CStr::from_bytes_with_nul(b"software\0").unwrap()),
+                )
+                .unwrap(),
                 parse_args::Renderer::Accelerated => window.into_canvas(),
             }
         };
